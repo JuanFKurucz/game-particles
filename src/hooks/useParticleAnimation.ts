@@ -288,6 +288,26 @@ export const useParticleAnimation = (
     }
   }, [gameState.currency, uiTakeover]);
 
+  // Clean up excess particles
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      // Limit total number of particles to prevent performance issues
+      const actualMaxParticles = Math.floor(maxParticles * (1 + gameState.upgrades.maxParticles * 0.2));
+      const maxAllowedParticles = actualMaxParticles * 1.5; // Allow some extra for effects
+      
+      if (particlesRef.current.length > maxAllowedParticles) {
+        // Remove excess non-target, non-collector particles
+        const particlesToKeep = particlesRef.current.filter(
+          p => p.isTarget || p.isCollector || Math.random() > 0.5
+        ).slice(0, maxAllowedParticles);
+        
+        particlesRef.current = particlesToKeep;
+      }
+    }, 5000); // Check every 5 seconds
+    
+    return () => clearInterval(cleanupInterval);
+  }, [maxParticles, gameState.upgrades.maxParticles]);
+
   // Update particles
   const updateParticles = (ctx: CanvasRenderingContext2D, delta: number) => {
     // Use either the direct scaled mouse position or the one from the ref
@@ -324,12 +344,17 @@ export const useParticleAnimation = (
     const targetCount = particles.filter(p => p.isTarget).length;
     const adjustedSpawnRate = targetSpawnRate * (1 + gameState.upgrades.targetSpawnRate * 0.2);
     
-    if (targetCount < 3 && Math.random() < adjustedSpawnRate) {
+    // Don't spawn targets too frequently
+    if (targetCount < 3 && Math.random() < adjustedSpawnRate && 
+        Date.now() - targetCollectedTimeRef.current > 300) { // Throttle spawning
       const randomIndex = Math.floor(Math.random() * particles.length);
       if (!particles[randomIndex].isTarget && !particles[randomIndex].isCollector) {
         particles[randomIndex].isTarget = true;
       }
     }
+    
+    // Track if we've already collected a target this frame
+    let targetCollectedThisFrame = false;
     
     // Update each particle
     for (let i = 0; i < particles.length; i++) {
@@ -349,7 +374,10 @@ export const useParticleAnimation = (
               let closestTarget = targets[0];
               let closestDist = Infinity;
               
-              for (const target of targets) {
+              // Limit the number of targets we check to improve performance
+              const targetsToCheck = targets.slice(0, 3);
+              
+              for (const target of targetsToCheck) {
                 const dx = target.x - p.x;
                 const dy = target.y - p.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
@@ -381,7 +409,10 @@ export const useParticleAnimation = (
               let closestTarget = targets[0];
               let closestDist = Infinity;
               
-              for (const target of targets) {
+              // Limit the number of targets we check to improve performance
+              const targetsToCheck = targets.slice(0, 3);
+              
+              for (const target of targetsToCheck) {
                 const dx = target.x - p.x;
                 const dy = target.y - p.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
@@ -413,16 +444,21 @@ export const useParticleAnimation = (
         }
       }
       
-      // Auto-collectors can collect targets on their own
-      if (p.isCollector) {
-        for (let j = 0; j < particles.length; j++) {
-          if (particles[j].isTarget) {
-            const dx = particles[j].x - p.x;
-            const dy = particles[j].y - p.y;
+      // Auto-collectors can collect targets on their own - but don't collect multiple in one frame
+      if (p.isCollector && !targetCollectedThisFrame) {
+        // Limit the search to improve performance
+        const maxCheck = Math.min(particles.length, 20);
+        
+        for (let j = 0; j < maxCheck; j++) {
+          const randomIdx = Math.floor(Math.random() * particles.length);
+          if (particles[randomIdx].isTarget) {
+            const dx = particles[randomIdx].x - p.x;
+            const dy = particles[randomIdx].y - p.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
             
             if (distance < 30) {
-              collectTarget(j);
+              collectTarget(randomIdx);
+              targetCollectedThisFrame = true;
               break;
             }
           }
@@ -435,9 +471,10 @@ export const useParticleAnimation = (
         const dy = p.y - mousePos.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
-        // Check for target collection by the player
-        if (p.isTarget && distance < 30) {
+        // Check for target collection by the player - only one per frame
+        if (p.isTarget && distance < 30 && !targetCollectedThisFrame) {
           collectTarget(i);
+          targetCollectedThisFrame = true;
         }
         
         // Apply repulsion to particles near mouse
@@ -535,16 +572,22 @@ export const useParticleAnimation = (
   const collectTarget = (index: number) => {
     const particles = particlesRef.current;
     
-    // Make sure it's still a target
-    if (!particles[index].isTarget) return;
+    // Make sure it's still a target and index is valid
+    if (index < 0 || index >= particles.length || !particles[index].isTarget) return;
+    
+    // Debounce collection to prevent freezing
+    const now = Date.now();
+    if (now - targetCollectedTimeRef.current < 100) return;
+    targetCollectedTimeRef.current = now;
     
     // Mark as collected
     particles[index].isTarget = false;
-    targetCollectedTimeRef.current = Date.now();
     
-    // Visual effect for collection
+    // Visual effect for collection - limit particles for performance
     const p = particles[index];
-    for (let j = 0; j < 10; j++) {
+    const maxEffectParticles = 5;
+    
+    for (let j = 0; j < maxEffectParticles; j++) {
       particles.push({
         x: p.x,
         y: p.y,
@@ -559,7 +602,7 @@ export const useParticleAnimation = (
       });
     }
     
-    // Update game state
+    // Update game state - use a batched update
     setGameState(prev => {
       const newCurrency = prev.currency + 1;
       const newScore = prev.score + 1;
