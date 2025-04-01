@@ -249,13 +249,12 @@ const UiTakeoverOverlay = styled.div`
   width: 100%;
   height: 100%;
   background: rgba(0, 0, 0, 0);
-  z-index: 10000;
-  pointer-events: none;
+  z-index: 50; // Lower z-index to not block interaction
+  pointer-events: none; // Never block pointer events
   transition: background 2s ease;
   
   &.active {
-    background: rgba(0, 0, 0, 0.7);
-    pointer-events: auto;
+    background: rgba(0, 0, 0, 0.5); // Less dark
   }
 `;
 
@@ -485,6 +484,12 @@ const ParticleCanvas: React.FC = () => {
       if (gameContainer) {
         (gameContainer as HTMLElement).style.zIndex = '1000';
       }
+
+      // Ensure shop is visible and interactive
+      const shopPanel = document.querySelector('.shop-panel');
+      if (shopPanel) {
+        (shopPanel as HTMLElement).style.zIndex = '2000';
+      }
     }
     
     return () => {
@@ -613,7 +618,7 @@ const ParticleCanvas: React.FC = () => {
       </GameHint>
       
       <ShopPanel 
-        className={showShop ? 'visible' : ''} 
+        className={`shop-panel ${showShop ? 'visible' : ''}`}
         style={{ 
           zIndex: 2000 
         }}
