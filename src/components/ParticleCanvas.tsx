@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { useParticleAnimation } from '../../hooks/useParticleAnimation';
-import { useMousePosition } from '../../hooks/useMousePosition';
+import useParticleAnimation from '../hooks/useParticleAnimation';
+import { useMousePosition } from '../hooks/useMousePosition';
 
 // Styled components
 const GameCanvas = styled.canvas`
