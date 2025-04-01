@@ -390,6 +390,7 @@ const ParticleCanvas: React.FC = () => {
   const mousePositionRef = useRef(mousePos);
   const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
   const [isActive, setIsActive] = useState(false);
+  const [uiTakeover, setUiTakeover] = useState(false);
   
   // Keep the ref updated with the latest position
   useEffect(() => {
@@ -405,7 +406,7 @@ const ParticleCanvas: React.FC = () => {
     showHint,
     showShop,
     setShowShop,
-    uiTakeover,
+    uiTakeover: hookUiTakeover,
     purchaseUpgrade
   } = useParticleAnimation(
     canvasRef,
@@ -470,8 +471,8 @@ const ParticleCanvas: React.FC = () => {
 
   // UI Takeover effect
   useEffect(() => {
-    if (uiTakeover) {
-      // Add the takeover class to all main content divs
+    if (hookUiTakeover) {
+      // Find all main content elements
       const mainContent = document.querySelectorAll('main > div:not(.particle-game-container)');
       mainContent.forEach(el => {
         (el as HTMLElement).style.opacity = '0.2';
@@ -479,7 +480,7 @@ const ParticleCanvas: React.FC = () => {
         (el as HTMLElement).style.transition = 'opacity 1.5s ease';
       });
       
-      // Make the game more visible
+      // Make the game more visible and positioned above other content
       const gameContainer = document.querySelector('.particle-game-container');
       if (gameContainer) {
         (gameContainer as HTMLElement).style.zIndex = '1000';
@@ -488,7 +489,7 @@ const ParticleCanvas: React.FC = () => {
     
     return () => {
       // Cleanup function to restore visibility
-      if (uiTakeover) {
+      if (hookUiTakeover) {
         const mainContent = document.querySelectorAll('main > div');
         mainContent.forEach(el => {
           (el as HTMLElement).style.opacity = '1';
@@ -496,7 +497,7 @@ const ParticleCanvas: React.FC = () => {
         });
       }
     };
-  }, [uiTakeover]);
+  }, [hookUiTakeover]);
 
   // Render upgrade options for the shop
   const renderUpgradeOptions = () => {
@@ -561,6 +562,21 @@ const ParticleCanvas: React.FC = () => {
     });
   };
 
+  // Function to handle shop button click
+  const handleShopButtonClick = () => {
+    // Always trigger UI takeover when opening the shop
+    if (!uiTakeover) {
+      setUiTakeover(true);
+      
+      // Dispatch custom event to notify parent components
+      const event = new CustomEvent('gameStateChange', {
+        detail: { action: 'activateGameUI' }
+      });
+      window.dispatchEvent(event);
+    }
+    setShowShop(true);
+  };
+
   return (
     <div 
       className="particle-game-container"
@@ -572,7 +588,7 @@ const ParticleCanvas: React.FC = () => {
         height: '100%', 
         overflow: 'hidden', 
         pointerEvents: 'auto',
-        zIndex: 1
+        zIndex: uiTakeover ? 1000 : 1
       }}
     >
       <GameCanvas ref={canvasRef} />
@@ -586,8 +602,8 @@ const ParticleCanvas: React.FC = () => {
       </CurrencyDisplay>
       
       <ShopButton 
-        className={showScore ? 'visible' : ''}
-        onClick={() => setShowShop(true)}
+        className={`shop-button ${showScore ? 'visible' : ''}`}
+        onClick={handleShopButtonClick}
       >
         Upgrades
       </ShopButton>
@@ -596,7 +612,12 @@ const ParticleCanvas: React.FC = () => {
         Move your cursor to interact with particles. Collect the glowing targets!
       </GameHint>
       
-      <ShopPanel className={showShop ? 'visible' : ''}>
+      <ShopPanel 
+        className={showShop ? 'visible' : ''} 
+        style={{ 
+          zIndex: 2000 
+        }}
+      >
         <div className="shop-close" onClick={() => setShowShop(false)}></div>
         <h2>Particle Upgrades</h2>
         {renderUpgradeOptions()}
