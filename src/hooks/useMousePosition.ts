@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-interface MousePosition {
+export interface MousePosition {
   x: number;
   y: number;
   isMoving: boolean;
