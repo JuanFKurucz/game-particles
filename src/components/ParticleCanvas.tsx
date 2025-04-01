@@ -249,12 +249,12 @@ const UiTakeoverOverlay = styled.div`
   width: 100%;
   height: 100%;
   background: rgba(0, 0, 0, 0);
-  z-index: 50; // Lower z-index to not block interaction
-  pointer-events: none; // Never block pointer events
+  z-index: 50;
+  pointer-events: none;
   transition: background 2s ease;
   
   &.active {
-    background: rgba(0, 0, 0, 0.5); // Less dark
+    background: rgba(0, 0, 0, 0); // Completely transparent
   }
 `;
 
@@ -468,15 +468,29 @@ const ParticleCanvas: React.FC = () => {
     };
   }, []);
 
-  // UI Takeover effect
+  // UI Takeover effect - update to only affect hero content, not add darkness
   useEffect(() => {
     if (hookUiTakeover) {
-      // Find all main content elements
-      const mainContent = document.querySelectorAll('main > div:not(.particle-game-container)');
-      mainContent.forEach(el => {
-        (el as HTMLElement).style.opacity = '0.2';
-        (el as HTMLElement).style.pointerEvents = 'none';
-        (el as HTMLElement).style.transition = 'opacity 1.5s ease';
+      // Only target specific content we want to fade out
+      const heroTitle = document.querySelector('.hero-title');
+      const heroButtons = document.querySelectorAll('.hero-button');
+      const heroSubtitle = document.querySelector('.hero-subtitle');
+      
+      // Fade out specific hero elements
+      if (heroTitle) {
+        (heroTitle as HTMLElement).style.opacity = '0.2';
+        (heroTitle as HTMLElement).style.transition = 'opacity 1.5s ease';
+      }
+      
+      if (heroSubtitle) {
+        (heroSubtitle as HTMLElement).style.opacity = '0.2';
+        (heroSubtitle as HTMLElement).style.transition = 'opacity 1.5s ease';
+      }
+      
+      heroButtons.forEach(button => {
+        (button as HTMLElement).style.opacity = '0.2';
+        (button as HTMLElement).style.pointerEvents = 'none';
+        (button as HTMLElement).style.transition = 'opacity 1.5s ease';
       });
       
       // Make the game more visible and positioned above other content
@@ -495,10 +509,21 @@ const ParticleCanvas: React.FC = () => {
     return () => {
       // Cleanup function to restore visibility
       if (hookUiTakeover) {
-        const mainContent = document.querySelectorAll('main > div');
-        mainContent.forEach(el => {
-          (el as HTMLElement).style.opacity = '1';
-          (el as HTMLElement).style.pointerEvents = 'auto';
+        const heroTitle = document.querySelector('.hero-title');
+        const heroButtons = document.querySelectorAll('.hero-button');
+        const heroSubtitle = document.querySelector('.hero-subtitle');
+        
+        if (heroTitle) {
+          (heroTitle as HTMLElement).style.opacity = '1';
+        }
+        
+        if (heroSubtitle) {
+          (heroSubtitle as HTMLElement).style.opacity = '1';
+        }
+        
+        heroButtons.forEach(button => {
+          (button as HTMLElement).style.opacity = '1';
+          (button as HTMLElement).style.pointerEvents = 'auto';
         });
       }
     };
